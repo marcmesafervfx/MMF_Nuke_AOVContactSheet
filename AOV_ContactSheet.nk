@@ -1,0 +1,57 @@
+Group {
+ inputs 0
+ name AOV_ContactSheet
+ xpos 197
+ ypos -131
+ postage_stamp true
+ addUserKnob {20 Main}
+ addUserKnob {26 space l " " T "                              "}
+ addUserKnob {26 title l " " -STARTLINE T "AOV ContactSheet v1.0"}
+ addUserKnob {26 ""}
+ addUserKnob {3 width l Width}
+ width 1280
+ addUserKnob {3 height l Height -STARTLINE}
+ height 720
+ addUserKnob {22 renders l "Render Res" t "will pick your renders resolution for the full contactsheet." -STARTLINE T "import nuke\n\nmasterNodeName = nuke.thisNode().name()\nmasterNode = nuke.toNode(masterNodeName)\n\ntry:\n\tnode = masterNode.input(0)\n\twidth = node.width()\n\theight = node.height()\n\n\tmasterNode.knob('width').setValue(width)\n\tmasterNode.knob('height').setValue(height)\nexcept:\n\tnuke.message('please connect an input node (AovBundle or group).')"}
+ addUserKnob {3 rows l Rows}
+ rows 2
+ addUserKnob {3 columns l Columns -STARTLINE}
+ columns 2
+ addUserKnob {6 center l Center -STARTLINE}
+ center true
+ addUserKnob {26 ""}
+ addUserKnob {6 enable_bg l "Enable Background" +STARTLINE}
+ enable_bg true
+ addUserKnob {7 bgop l "BG Opacity"}
+ bgop 1
+ addUserKnob {19 bgcolor l "BG Color"}
+ bgcolor {0.01 0.01 0.01 1}
+ addUserKnob {6 bgcolor_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+ addUserKnob {6 color_rgba_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+ addUserKnob {26 text l " " T " "}
+ addUserKnob {7 txt_scale l "Text Scale" R 0 2}
+ txt_scale 1
+ addUserKnob {26 ""}
+ addUserKnob {22 detect l "Detect AOVs" -STARTLINE T "import nuke, fnmatch, math\n\n\n\naovNodeName = nuke.thisNode().name()\naovNode = nuke.toNode(aovNodeName)\n\n\n\naovs = \[]\naovsSorted = \[]\ncount = 0\n\n\n\ntry:\n    node = aovNode.input(0)\n    channels = list(set(\[x.split('.')\[0] for x in node.channels()]))\n    width = node.width()\n    height = node.height()\n\n\n\n    for c,l in enumerate(sorted(channels)):\n        aovs.append(l)\n        count = count+1\n\n\n\n    rows = math.ceil(math.sqrt(count))\n    columns = math.ceil(count/rows)\n\n\n\n    aovNode.knob('rows').setValue(int(rows))\n    aovNode.knob('columns').setValue(int(columns))\n\n\n\n    aovNode.knob('width').setValue(width)\n    aovNode.knob('height').setValue(height)\n    \n    kbs = \[]\n    for n in range(aovNode.getNumKnobs()):\n        kbs.append(aovNode.knob(n).name())\n\n\n\n    for k in kbs:\n        if fnmatch.fnmatch(k, 'kb_*'):\n            aovNode.removeKnob(aovNode.knob(k))\n\n\n\n    with aovNode:\n        posx = nuke.toNode('AOV_Input').xpos()\n        posy = nuke.toNode('AOV_Input').ypos()+40\n\n\n\n    for c,a in enumerate(sorted(aovs)):\n        if a == 'rgba':\n            rgbaIdx = c\n            break\n\n\n\n    aovsSorted.append(aovs\[rgbaIdx])\n\n\n\n    for c,a in enumerate(sorted(aovs)):\n        if a != 'rgba':\n            aovsSorted.append(aovs\[c])\n\n\n\n    aovs = aovsSorted\n\n\n\n    for c,a in enumerate(aovs):\n        aovCb = nuke.Boolean_Knob( ('kb_'+ a), a )\n        aovCb.setValue(1)\n        aovCb.setFlag(nuke.STARTLINE)\n        aovNode.addKnob(aovCb)\n\n\n\n    with aovNode:\n        nodes = \['Read', 'Text2', 'ContactSheet', 'ShuffleCopy', 'Transform', 'Shuffle', 'Merge', 'Reformat']\n        for node in nodes:\n            for n in nuke.allNodes(node):\n                nuke.delete(n)\n\n\n\n    layers = \[]\n    offset = -100 \n    with aovNode:\n        inputdot = nuke.toNode('AOV_Input')\n        for c in range(count):\n            \n            offset = offset+100\n\n\n\n            shuffle = nuke.nodes.Shuffle(label=aovs\[c], inputs=\[inputdot], xpos=posx+offset, ypos=posy)\n            shuffle\['in'].setValue(aovs\[c])\n\n\n\n            reformat = nuke.nodes.Reformat(xpos=shuffle.xpos(), ypos=shuffle.ypos()+40)\n            reformat\['resize'].setValue('fit')\n            reformat.setInput(0, shuffle)\n\n\n\n            merge = nuke.nodes.Merge(xpos=shuffle.xpos(), ypos=shuffle.ypos()+80)\n            layers.append(merge)\n            merge.setInput(0, reformat)\n\n\n\n            text = nuke.nodes.Text2(inputs=\[], message=aovs\[c], xpos=shuffle.xpos(), ypos=shuffle.ypos()+120)\n            text\['box'].setValue(0, 0, width, height)\n            text\['center'].setValue(0,1)\n            text\['center'].setValue(0,0)\n            text\['yjustify'].setValue('bottom')\n            text\['font'].setValue('Verdana', 'Regular')\n            text\['global_font_scale'].setExpression(aovNodeName+'.txt_scale')\n            text\['enable_background'].setExpression(aovNodeName+'.enable_bg')\n            text\['background_opacity'].setExpression(aovNodeName+'.bgop')\n            text\['background_color'].setExpression(aovNodeName+'.bgcolor')\n\n\n\n            merge.setInput(1, text)\n\n\n\n        output = nuke.toNode('Output1')\n        contactSheet = nuke.nodes.ContactSheet(inputs=layers, rows=rows, columns=columns, xpos=posx, ypos=posy + 160)\n        contactSheet\['width'].setExpression(aovNodeName+'.knob.width')\n        contactSheet\['height'].setExpression(aovNodeName+'.knob.height')\n        contactSheet\['rows'].setExpression(aovNodeName+'.rows')\n        contactSheet\['columns'].setExpression(aovNodeName+'.columns')\n        contactSheet\['center'].setExpression(aovNodeName+'.center')\n        contactSheet\['xpos'].setValue(posx)\n        contactSheet\['roworder'].setValue('TopBottom')\n        output.setInput(0, contactSheet)\n\n\n\nexcept:\n    nuke.message(\"Connect an input which contains AOVs.\")\n    \n\n\n\n\n"}
+ addUserKnob {22 clear l "Clear AOVs" -STARTLINE T "import nuke, fnmatch\n\n\naovNodeName = nuke.thisNode().name()\naovNode = nuke.toNode(aovNodeName)\n\n\ntry:\n    kbs = \[]\n    for n in range(aovNode.getNumKnobs()):\n        kbs.append(aovNode.knob(n).name())\n        \n    if kbs != \[]:\n        for k in kbs:\n            if fnmatch.fnmatch(k, 'kb_*'):\n                aovNode.removeKnob(aovNode.knob(k))\n\n\n    with aovNode:\n        nodes = \['Read', 'Text2', 'ContactSheet', 'ShuffleCopy', 'Transform', 'Shuffle', 'Merge', 'Reformat']\n        for node in nodes:\n            for n in nuke.allNodes(node):\n                nuke.delete(n)\nexcept:\n    nuke.message(\"Connect an input which contains AOVs.\")"}
+ addUserKnob {22 update l Update -STARTLINE T "import nuke, fnmatch, math\n\n\n\naovNodeName = nuke.thisNode().name()\naovNode = nuke.toNode(aovNodeName)\n\n\n\naovsSorted = \[]\ncount = 0\n\n\n\ntry:\n    node = aovNode.input(0)\n    \n    aovs = \[]\n    for n in range(aovNode.getNumKnobs()):\n        if 'kb_' in aovNode.knob(n).name() and aovNode.knob(n).getValue() == 1:\n            kbname = aovNode.knob(n).name()\n            aovs.append(kbname.replace(\"kb_\", \"\"))\n            count = count + 1\n    \n    width = node.width()\n    height = node.height()\n\n\n\n    rows = math.ceil(math.sqrt(count))\n    columns = math.ceil(count/rows)\n\n\n\n    aovNode.knob('rows').setValue(int(rows))\n    aovNode.knob('columns').setValue(int(columns))\n\n\n\n    aovNode.knob('width').setValue(width)\n    aovNode.knob('height').setValue(height)\n\n\n    with aovNode:\n        posx = nuke.toNode('AOV_Input').xpos()\n        posy = nuke.toNode('AOV_Input').ypos()+40\n\n\n\n    for c,a in enumerate(sorted(aovs)):\n        if a == 'rgba':\n            rgbaIdx = c\n            break\n\n\n\n    aovsSorted.append(aovs\[rgbaIdx])\n\n\n\n    for c,a in enumerate(sorted(aovs)):\n        if a != 'rgba':\n            aovsSorted.append(aovs\[c])\n\n\n\n    aovs = aovsSorted\n\n\n    with aovNode:\n        nodes = \['Read', 'Text2', 'ContactSheet', 'ShuffleCopy', 'Transform', 'Shuffle', 'Merge', 'Reformat']\n        for node in nodes:\n            for n in nuke.allNodes(node):\n                nuke.delete(n)\n\n\n\n    layers = \[]\n    offset = -100 \n    with aovNode:\n        inputdot = nuke.toNode('AOV_Input')\n        for c in range(count):\n            \n            offset = offset+100\n\n\n\n            shuffle = nuke.nodes.Shuffle(label=aovs\[c], inputs=\[inputdot], xpos=posx+offset, ypos=posy)\n            shuffle\['in'].setValue(aovs\[c])\n\n\n\n            reformat = nuke.nodes.Reformat(xpos=shuffle.xpos(), ypos=shuffle.ypos()+40)\n            reformat\['resize'].setValue('fit')\n            reformat.setInput(0, shuffle)\n\n\n\n            merge = nuke.nodes.Merge(xpos=shuffle.xpos(), ypos=shuffle.ypos()+80)\n            layers.append(merge)\n            merge.setInput(0, reformat)\n\n\n\n            text = nuke.nodes.Text2(inputs=\[], message=aovs\[c], xpos=shuffle.xpos(), ypos=shuffle.ypos()+120)\n            text\['box'].setValue(0, 0, width, height)\n            text\['center'].setValue(0,1)\n            text\['center'].setValue(0,0)\n            text\['yjustify'].setValue('bottom')\n            text\['font'].setValue('Verdana', 'Regular')\n            text\['global_font_scale'].setExpression(aovNodeName+'.txt_scale')\n            text\['enable_background'].setExpression(aovNodeName+'.enable_bg')\n            text\['background_opacity'].setExpression(aovNodeName+'.bgop')\n            text\['background_color'].setExpression(aovNodeName+'.bgcolor')\n\n\n\n            merge.setInput(1, text)\n\n\n\n        output = nuke.toNode('Output1')\n        contactSheet = nuke.nodes.ContactSheet(inputs=layers, rows=rows, columns=columns, xpos=posx, ypos=posy + 160)\n        contactSheet\['width'].setExpression(aovNodeName+'.knob.width')\n        contactSheet\['height'].setExpression(aovNodeName+'.knob.height')\n        contactSheet\['rows'].setExpression(aovNodeName+'.rows')\n        contactSheet\['columns'].setExpression(aovNodeName+'.columns')\n        contactSheet\['center'].setExpression(aovNodeName+'.center')\n        contactSheet\['xpos'].setValue(posx)\n        contactSheet\['roworder'].setValue('TopBottom')\n        output.setInput(0, contactSheet)\n\n\n\nexcept:\n    nuke.message(\"Connect an input which contains AOVs.\")"}
+ addUserKnob {26 ""}
+}
+ Input {
+  inputs 0
+  name AOV_Input
+  xpos 511
+  ypos -157
+ }
+ Output {
+  name Output1
+  xpos 511
+  ypos 84
+ }
+ Viewer {
+  frame_range 1-100
+  name Viewer1
+  xpos 511
+  ypos 108
+ }
+end_group
